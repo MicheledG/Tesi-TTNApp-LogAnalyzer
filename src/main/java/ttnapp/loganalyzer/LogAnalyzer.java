@@ -26,6 +26,16 @@ public class LogAnalyzer {
 	private static final String DEFAULT_TRACK_FILE_FOLDER = "log";
 	private static final String DEFAULT_LOST_PACKETS_FILE_NAME = "lostpackets.dat";
 	private static final String DEFAULT_LOST_PACKETS_FILE_FOLDER = "log";
+	private static Point DEFAULT_GATEWAY_POINT;
+	
+	static {
+		//set the gateway @5T, via Bertola
+		DEFAULT_GATEWAY_POINT = new Point(
+				null,
+				45.07136,
+				7.67811
+				);		
+	}
 	
 	
 	public static void main(String[] args) {				
@@ -93,11 +103,14 @@ public class LogAnalyzer {
 			return;
 		}
 		
+		//geotag the received packets
+		List<Packet> receivedPacketsGeo = computePacketsGeo(receivedPackets, trackPoints);
+		
 		//create the list of the lost packets
 		List<Packet> lostPackets = computeLostPackets(receivedPackets);
 		
 		//geotag the lost packets
-		List<Packet> lostPacketsGeo = computeLostPacketsGeo(lostPackets, trackPoints);
+		List<Packet> lostPacketsGeo = computePacketsGeo(lostPackets, trackPoints);
 		
 		//print the list of the lost packets
 		for (Packet packet : lostPacketsGeo) {
@@ -108,7 +121,7 @@ public class LogAnalyzer {
 		
 		//write the list of the lost packets to the output file
 		try {
-			logLostPackets(lostPacketsPath, lostPacketsGeo);
+			logPackets(lostPacketsPath, lostPacketsGeo);
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -117,27 +130,27 @@ public class LogAnalyzer {
 		
 	}
 
-	private static List<Packet> computeLostPacketsGeo(List<Packet> lostPackets, List<Point> trackPoints) {
+	private static List<Packet> computePacketsGeo(List<Packet> packets, List<Point> trackPoints) {
 		
-		for (Packet lostPacket : lostPackets) {
-			Point packetPoint = findPacketPoint(lostPacket, trackPoints);
-			lostPacket.setPoint(packetPoint);
+		for (Packet packet : packets) {
+			Point packetPoint = findPacketPoint(packet, trackPoints);
+			packet.setPoint(packetPoint);
 		}
 		
-		return lostPackets;
+		return packets;
 	}
 
 
-	private static Point findPacketPoint(Packet lostPacket, List<Point> trackPoints) {
+	private static Point findPacketPoint(Packet packet, List<Point> trackPoints) {
 		
 		
 		//WARNING: this method works properly only if the trackPoints are chronological sorted
 		Point closestPoint = trackPoints.get(0);
-		long minDelay = Math.abs(lostPacket.getTimestamp().getTime() - closestPoint.getTimestamp().getTime());
+		long minDelay = Math.abs(packet.getTimestamp().getTime() - closestPoint.getTimestamp().getTime());
 		long tmpDelay = 0;
 				
 		for (Point point : trackPoints) {
-			tmpDelay = Math.abs(lostPacket.getTimestamp().getTime() - point.getTimestamp().getTime());
+			tmpDelay = Math.abs(packet.getTimestamp().getTime() - point.getTimestamp().getTime());
 			
 			if(tmpDelay <= minDelay){
 				minDelay = tmpDelay;
@@ -194,12 +207,12 @@ public class LogAnalyzer {
 		return point;
 	}
 
-	private static void logLostPackets(String lostPacketsPath, List<Packet> lostPackets) throws FileNotFoundException{
+	private static void logPackets(String filePath, List<Packet> packets) throws FileNotFoundException{
     	    	
-		FileOutputStream fileOut = new FileOutputStream(lostPacketsPath, false);
+		FileOutputStream fileOut = new FileOutputStream(filePath, false);
 		PrintWriter printWriter = new PrintWriter(fileOut, true);
 		
-		for (Packet packet : lostPackets) {
+		for (Packet packet : packets) {
 			
 			String timestamp = Packet.DEFAULT_TIMESTAMP_FORMAT.format(packet.getTimestamp());
 			String devId = packet.getDevId();
@@ -264,10 +277,10 @@ public class LogAnalyzer {
 					lostPacket.setDevId(previousPacket.getDevId());
 					lostPacket.setCounter(previousPacketCounter + j);
 					lostPacket.setDataRate(previousPacket.getDataRate());
-					lostPacket.setFrequency(previousPacket.getFrequency());
-					lostPacket.setRssi(previousPacket.getRssi());
-					lostPacket.setSnr(previousPacket.getSnr());
-					lostPacket.setRawPayload(previousPacket.getRawPayload());
+					lostPacket.setFrequency(0);
+					lostPacket.setRssi(0);
+					lostPacket.setSnr(0);
+					lostPacket.setRawPayload(new byte[]{0, 0, 0, 0});
 					
 					lostPackets.add(lostPacket);
 				}

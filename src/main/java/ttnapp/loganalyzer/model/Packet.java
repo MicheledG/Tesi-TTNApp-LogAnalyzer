@@ -17,13 +17,14 @@ public class Packet implements Comparable<Packet> {
 	private double snr;
 	private byte[] rawPayload;
 	private Point point;
+	private double distance;
 	
 	public Packet() {
 		super();
 		// TODO Auto-generated constructor stub
 	}
 	public Packet(Date timestamp, String devId, int counter, String dataRate, double frequency, double rssi, double snr,
-			byte[] rawPayload, Point point) {
+			byte[] rawPayload, Point point, double distance) {
 		super();
 		this.timestamp = timestamp;
 		this.devId = devId;
@@ -34,6 +35,7 @@ public class Packet implements Comparable<Packet> {
 		this.snr = snr;
 		this.rawPayload = rawPayload;
 		this.point = point;
+		this.distance = distance;
 	}
 	public Date getTimestamp() {
 		return timestamp;
@@ -88,6 +90,12 @@ public class Packet implements Comparable<Packet> {
 	}
 	public void setPoint(Point point) {
 		this.point = point;
+	}
+	public double getDistance() {
+		return distance;
+	}
+	public void setDistance(double distance) {
+		this.distance = distance;
 	}
 	@Override
 	public int compareTo(Packet o) {
