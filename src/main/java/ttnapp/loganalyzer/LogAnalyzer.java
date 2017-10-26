@@ -17,6 +17,7 @@ import java.util.Scanner;
 
 import ttnapp.loganalyzer.model.Packet;
 import ttnapp.loganalyzer.model.Point;
+import ttnapp.loganalyzer.util.DistanceCalculator;
 
 public class LogAnalyzer {
 	
@@ -24,9 +25,11 @@ public class LogAnalyzer {
 	private static final String DEFAULT_LOG_FILE_FOLDER = "log";
 	private static final String DEFAULT_TRACK_FILE_NAME = "track.dat";
 	private static final String DEFAULT_TRACK_FILE_FOLDER = "log";
+	private static final String DEFAULT_RECEIVED_PACKETS_FILE_NAME = "receivedpackets.dat";
+	private static final String DEFAULT_RECEIVED_PACKETS_FILE_FOLDER = "log";
 	private static final String DEFAULT_LOST_PACKETS_FILE_NAME = "lostpackets.dat";
 	private static final String DEFAULT_LOST_PACKETS_FILE_FOLDER = "log";
-	private static Point DEFAULT_GATEWAY_POINT;
+	private static final Point DEFAULT_GATEWAY_POINT;
 	
 	static {
 		//set the gateway @5T, via Bertola
@@ -45,6 +48,8 @@ public class LogAnalyzer {
 		String logFileFolder = DEFAULT_LOG_FILE_FOLDER;
 		String trackFileName = DEFAULT_TRACK_FILE_NAME;
 		String trackFileFolder = DEFAULT_TRACK_FILE_FOLDER;
+		String receivedPacketsFileName = DEFAULT_RECEIVED_PACKETS_FILE_NAME;
+		String receivedPacketsFileFolder = DEFAULT_RECEIVED_PACKETS_FILE_FOLDER;
 		String lostPacketsFileName = DEFAULT_LOST_PACKETS_FILE_NAME;
 		String lostPacketsFileFolder = DEFAULT_LOST_PACKETS_FILE_FOLDER;
 				
@@ -61,9 +66,15 @@ public class LogAnalyzer {
 			trackFileFolder = args[3];
 		}
 		if(args.length > 4){
-			lostPacketsFileName = args[4];
+			receivedPacketsFileName = args[4];
 		}
 		if(args.length > 5){
+			receivedPacketsFileFolder = args[5];
+		}
+		if(args.length > 6){
+			lostPacketsFileName = args[4];
+		}
+		if(args.length > 7){
 			lostPacketsFileFolder = args[5];
 		}
 		
@@ -78,6 +89,11 @@ public class LogAnalyzer {
 				+ "/"
 				+ trackFileName;
 						
+		//create the receivedpackets path
+		String receivedPacketsPath = receivedPacketsFileFolder
+				+ "/"
+				+ receivedPacketsFileName;
+		
 		//create the lostpackets path
 		String lostPacketsPath = lostPacketsFileFolder
 				+ "/"
@@ -86,9 +102,8 @@ public class LogAnalyzer {
 		//put in memory the received packets
 		List<Packet> receivedPackets = null;
 		try {
-			receivedPackets = readReceivedPackets(logPath);
-		} catch (IOException | ParseException e) {
-			// TODO Auto-generated catch block
+			receivedPackets = readLogFile(logPath);
+		} catch (IOException | ParseException e) {			
 			e.printStackTrace();
 			return;
 		}
@@ -98,7 +113,6 @@ public class LogAnalyzer {
 		try {
 			trackPoints = readTrack(trackPath);
 		} catch (IOException | ParseException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 			return;
 		}
@@ -119,11 +133,19 @@ public class LogAnalyzer {
 			System.out.println("===============");
 		}
 		
+		//write the list of the received packets to the output file
+		try {
+			logPackets(receivedPacketsPath, receivedPacketsGeo);
+		} catch (FileNotFoundException e) {			
+			e.printStackTrace();
+			return;
+		}
+		
+		
 		//write the list of the lost packets to the output file
 		try {
 			logPackets(lostPacketsPath, lostPacketsGeo);
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
+		} catch (FileNotFoundException e) {			
 			e.printStackTrace();
 			return;
 		}
@@ -132,9 +154,22 @@ public class LogAnalyzer {
 
 	private static List<Packet> computePacketsGeo(List<Packet> packets, List<Point> trackPoints) {
 		
+		//geo tag each packet with a coordinate pair
 		for (Packet packet : packets) {
 			Point packetPoint = findPacketPoint(packet, trackPoints);
 			packet.setPoint(packetPoint);
+		}
+		
+		//compute the distance between each packet and the default gateway position
+		for (Packet packet : packets) {
+			double distance = DistanceCalculator.distance(
+					DEFAULT_GATEWAY_POINT.getLat(),
+					DEFAULT_GATEWAY_POINT.getLon(),
+					packet.getPoint().getLat(),
+					packet.getPoint().getLon(),
+					"K"
+					) * 1000; 
+			packet.setDistance(distance);
 		}
 		
 		return packets;
@@ -142,7 +177,6 @@ public class LogAnalyzer {
 
 
 	private static Point findPacketPoint(Packet packet, List<Point> trackPoints) {
-		
 		
 		//WARNING: this method works properly only if the trackPoints are chronological sorted
 		Point closestPoint = trackPoints.get(0);
@@ -228,8 +262,9 @@ public class LogAnalyzer {
 			double snr = packet.getSnr();
 			double lat = packet.getPoint().getLat();
 			double lon = packet.getPoint().getLon();
+			int distance = (int) packet.getDistance();
 					
-			printWriter.format("%s\t%s\t%d\t%s\t%f\t%f\t%f\t%s\t%f\t%f\n",
+			printWriter.format("%s\t%s\t%d\t%s\t%f\t%f\t%f\t%s\t%f\t%f\t%d\n",
 					timestamp,
 					devId,
 					counter,
@@ -239,7 +274,8 @@ public class LogAnalyzer {
 					snr,
 					rawPayloadString,
 					lat,
-					lon
+					lon,
+					distance
 					);
 		}		
 		
@@ -292,7 +328,7 @@ public class LogAnalyzer {
 		return lostPackets;
 	}
 
-	private static List<Packet> readReceivedPackets(String logPath) throws IOException, ParseException {
+	private static List<Packet> readLogFile(String logPath) throws IOException, ParseException {
 		
 		List<Packet> receivedPackets = new ArrayList<>();
 		FileReader logFile = new FileReader(logPath);

@@ -28,7 +28,7 @@ package ttnapp.loganalyzer.util;
 /*::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::*/
 
 
-class DistanceCalculator
+public class DistanceCalculator
 {
 //	public static void main (String[] args) throws java.lang.Exception
 //	{
